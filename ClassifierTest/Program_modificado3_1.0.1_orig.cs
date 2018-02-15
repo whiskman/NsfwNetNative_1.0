@@ -38,7 +38,7 @@ namespace ClassifierTest
         }
 
         private static void RunClassifier(ImageClassifier classifier, string ClassifierPath, 
-                                          bool classifyPorn = true, bool verbose = false, bool copyRights = false, string rightsPath = "", double cutoff = 0)
+                                          bool classifyPorn = true, bool verbose = false, bool copyWrongs = false, string wrongsPath = "", double cutoff = 0)
         {
 
             //cutoff = 2 --> usar default
@@ -72,7 +72,7 @@ namespace ClassifierTest
                 var imgData = File.ReadAllBytes(img);
 
 
-                var outPath = Path.Combine(rightsPath, Path.GetFileName(img)); 
+                var outPath = Path.Combine(wrongsPath, Path.GetFileName(img)); 
                 //var outPath = Path.Combine(@"D:\img_wrong", Path.GetFileName(img).Replace(".png", "_" + ctStr + score.ToString("F6") + ".png")); //Path.Combine(img, "wrong", Path.GetFileName(img));
 
                 try
@@ -82,12 +82,11 @@ namespace ClassifierTest
                         if (tPorn)
                         {
                             ++imgRight;
-                            if (copyRights) { File.Copy(img, outPath); }
                         }
                         else
                         {
                             ++imgWrong;
-                            
+                            if (copyWrongs) { File.Copy(img, outPath); }
                         }
                     }
                     else
@@ -101,13 +100,13 @@ namespace ClassifierTest
 
                         if (tPorn)
                         {
-                            ++imgWrong;                            
+                            ++imgWrong;
+                            //if (verbose) Console.WriteLine("score: {0}", classifier.GetPositiveProbability(imgData));
+                            if (copyWrongs) { File.Copy(img, outPath); }
                         }
                         else
                         {
                             ++imgRight;
-                            //if (verbose) Console.WriteLine("score: {0}", classifier.GetPositiveProbability(imgData));
-                            if (copyRights) { File.Copy(img, outPath); }
                         }
                     }
 
@@ -115,11 +114,11 @@ namespace ClassifierTest
                     {
                         if (tPorn)
                         {
-                            Console.WriteLine("Clasificadas {0} de {1} imágenes buscando pornográficas.", imgRight + imgWrong, total);
+                            Console.WriteLine("Classified {0} of {1} pornographic images.", imgRight + imgWrong, total);
                         }
                         else
                         {
-                            Console.WriteLine("Clasificadas {0} de {1} imagenes buscando no pornográficas.", imgRight + imgWrong, total);
+                            Console.WriteLine("Classified {0} of {1} non-pornographic images.", imgRight + imgWrong, total);
                         }
 
                     }
@@ -144,22 +143,22 @@ namespace ClassifierTest
 
             if (tPorn)
             {
-                Console.WriteLine("Clasificadas {0} imágenes, encontrando {1:0.00}% pornográficas.", imgRight + imgWrong, 100d * ((double)imgRight / (double)(imgRight + imgWrong)));
+                Console.WriteLine("Classified {0} pornographic images with an accuracy of {1}%.", imgRight + imgWrong, 100d * ((double)imgRight / (double)(imgRight + imgWrong)));
             }
             else
             {
-                Console.WriteLine("Clasificadas {0} imágenes, encontrando {1:0.00}% no pornográficas.", imgRight + imgWrong, 100d * ((double)imgRight / (double)(imgRight + imgWrong)));
+                Console.WriteLine("Classified {0} non-pornographic images with an accuracy of {1}%.", imgRight + imgWrong, 100d * ((double)imgRight / (double)(imgRight + imgWrong)));
             }                      
 
-            Console.WriteLine("El clasificador tardó un promedio de {0:0.00} mSeg por imagen.",  sw.ElapsedMilliseconds / (double)(total * 2));
+            Console.WriteLine("Classifier took an average of {0} msec per image to classify.",  sw.ElapsedMilliseconds / (double)(total * 2));
         }
 
         [STAThread]
         private static void Main(string[] args)
         {
             var sw = new Stopwatch();
-            bool copyRights = false, classifyPorn = true;
-            string rightsPath = "";
+            bool copyWrongs = false, classifyPorn = true;
+            string wrongsPath = "";
 
 
             Console.WriteLine("Ingrese el cutoff [0,001 - 1,0] (2 = default)");
@@ -196,7 +195,7 @@ namespace ClassifierTest
 
             while ((kc != ConsoleKey.P) && (kc != ConsoleKey.N))
             {
-                Console.WriteLine("Buscar Pornográfico/No pornográfico? (P/N)");
+                Console.WriteLine("Clasificar Pornográfico/No pornográfico? (P/N)");
                 kc = Console.ReadKey().Key;
                 Console.WriteLine("");
             }
@@ -205,20 +204,20 @@ namespace ClassifierTest
             kc = ConsoleKey.NoName;
             while ((kc != ConsoleKey.S) && (kc != ConsoleKey.N))
             {
-                Console.WriteLine("Desea copiar archivos encontrados para inspección? (S/N)");
+                Console.WriteLine("Desea copiar archivos erroneos (falsos negativos) para inspección? (S/N)");
                 kc = Console.ReadKey().Key;
                 Console.WriteLine("");
             }
             
-            copyRights = (kc == ConsoleKey.S);
-            if (copyRights)
+            copyWrongs = (kc == ConsoleKey.S);
+            if (copyWrongs)
             {
                 Console.WriteLine("Seleccione carpeta destino para copiar las imágenes...");
                 fbDlg.Description = "Seleccione carpeta destino para copiar las imágenes";
                 fbDlg.ShowNewFolderButton = true;
                 if (fbDlg.ShowDialog() == DialogResult.OK)
                 {
-                    rightsPath = fbDlg.SelectedPath;
+                    wrongsPath = fbDlg.SelectedPath;
                 }
                 else
                 {
@@ -234,25 +233,24 @@ namespace ClassifierTest
 
             /*
                 private static void RunClassifier(ImageClassifier classifier, string ClassifierPath, 
-                                          bool classifyPorn = true, bool verbose = false, bool copyRights = false, string rightsPath = "", double cutoff = 0)
+                                          bool classifyPorn = true, bool verbose = false, bool copyWrongs = false, string wrongsPath = "", double cutoff = 0)
             */
 
 
             var resnetClassifier = GetClassifier();                        
-            RunClassifier(resnetClassifier, imgsPath, classifyPorn, true, copyRights, rightsPath, co);
+            RunClassifier(resnetClassifier, imgsPath, classifyPorn, true, copyWrongs, wrongsPath, co);
 
             sw.Stop();
 
-            
+            /*
             TimeSpan ts = sw.Elapsed;
 
             // Format and display the TimeSpan value.
             string elapsedTime = String.Format("{0:00}:{1:00}:{2:00}.{3:00}",
                 ts.Hours, ts.Minutes, ts.Seconds,
                 ts.Milliseconds / 10);
-
-            //Console.WriteLine("Tiempo transcurrido: {0}", sw.Elapsed);
-            Console.WriteLine("Tiempo transcurrido: " + elapsedTime);
+                */
+            Console.WriteLine("Tiempo transcurrido: {0}", sw.Elapsed);
             Console.WriteLine("Presione cualquier tecla para terminar.");
             Console.ReadKey();
 
